@@ -4,7 +4,8 @@ import itertools
 from collections import deque
 f = open('eDualSymbolic.txt', '+')
 
-
+def func():
+    print("foo")
 
 # Takes in e and returns a list of the coefficients in e* (numerical)
 # Case I: e_{L_i, L_j} (i < j)
