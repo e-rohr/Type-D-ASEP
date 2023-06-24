@@ -3,6 +3,7 @@ import itertools
 from collections import deque
 f = open('sosoDualHypNumerical.txt', 'w')
 
+
 n = 4
 var('q')
 var('r')
@@ -19,7 +20,7 @@ print(f"q = {q} \t n = {n}", file = f)
 
 def inverse(M):
     detM = M.det()
-    size = shape(M)[0]
+    size = len(M.row(0))
     coM = zeros(size)
     signRow = 1
     for i in range(size):
@@ -198,23 +199,6 @@ def dualElements(pathSet, i, j, case):
     return (eDual, fDual)
 
 
-def compareRoots(μ,λ):
-    if (μ > 0 and λ > 0):
-        return 1 if (μ < λ) else 0
-    elif (μ < 0 and λ < 0):
-        return 2 if (μ < λ) else 0
-    elif (μ == n and λ == -n ):
-        return 0
-    elif (μ > 0 and λ < 0):
-        return 3
-    else:
-        return 0    
-
-
-
-indexSet = [(μ, λ, compareRoots(μ,λ)) for μ in range(-n,n+1) for λ in range(-n,n+1) if compareRoots(μ,λ) in [1,2]]
-
-
 def leftsum():
     print("@@@@@@@@ Left sum: @@@@@@@@@@", file = f)
     sum = 0
@@ -314,23 +298,3 @@ def rightsum():
 
 #print((leftsum() + rightsum()).subs(q-1/q,r))
 print(f"\n @@@@@@@@ Total Sum @@@@@@@@{(leftsum() + rightsum())}", file = f)
-#print(dual(result([1,2])))
-
-
-'''   To go in rightsum
-    for (μ,λ,c) in indexSet:
-        match (c):
-            case 1: 
-                pathSet = [x for x in range(μ, λ)]
-                coeff = q**(1 + 2*n - 2*μ + 2*(len(pathSet)))
-            case 2: 
-                coeff = q**(2 + 2*n - 2*μ) if μ == -1 * λ else q**(1 + 2*n - 2*μ)
-                pathSet = []
-                for x in range(-1 * λ,n-1):
-                    pathSet.append(x)
-                for x in reversed(range(μ,n+1)):
-                    pathSet.append(x) # e_{μλ} = E_{pathSet} = E_{j, ..., n - 2, n, n - 1, ..., i}
-            case 3: 
-                coeff = q**(1 - 2*μ - 2*n)
-                pathSet = [x for x in range(-1 * λ, -1 * μ)]
-'''  
