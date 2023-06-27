@@ -5,8 +5,8 @@ f = open('sosoDualHypNumerical.txt', 'w')
 
 
 n = 4
-var('q')
-var('r')
+q = Symbol('q')
+r = Symbol('r')
 #q = 10
 H = symbols('H(1:5)', commutative = False) # These are 0-indexed (so H[0] is H1)
 E = symbols('E(1:5)', commutative = False)
