@@ -27,7 +27,7 @@ def inverse(M):
     coM = zeros(size)
     signRow = 1
     for i in range(size):
-        signCol = signRow       #
+        signCol = signRow       
         for j in range(size):
             minor = M[:,:]
             minor.col_del(j)
@@ -73,23 +73,23 @@ def pair(list1, list2):
     return ret
 
 def mat(listofLists):
-    M = [[0 for x in range(len(listofLists))] for x in range(len(listofLists))]
+    M = zeros(len(listofLists))
     for i in range(len(listofLists)):
         for j in range(len(listofLists)):
             lst = pair(listofLists[i], listofLists[j])
             for k in lst:
-                M[i][j] += q**k
-    return M#.applyfunc(simplify)
+                M[i, j] += q**k
+    return M.applyfunc(simplify)
 
 def dual(listofLists): # for computing specific dual elements
-    M = [[0 for x in range(len(listofLists))] for x in range(len(listofLists))]
+    M = zeros(len(listofLists))
     for i in range(len(listofLists)):
         for j in range(len(listofLists)):
             lst = pair(listofLists[i], listofLists[j])
             for k in lst:
-                M[i][j] += q**k
-    N = numpy.linalg.inv(M)
-    return N#.applyfunc(simplify)
+                M[i, j] += q**k
+    N= inverse(M)
+    return N.applyfunc(simplify)
 
 def perm(tentlist): # given list of lists, removes linear dependence
     fin = []
@@ -97,7 +97,7 @@ def perm(tentlist): # given list of lists, removes linear dependence
         fin1 = list(fin)
         fin1.append(tentlist[i])
         M = mat(fin1)
-        if (numpy.linalg.det(M) != 0):
+        if(M.det() != 0):
             fin.append(tentlist[i])
     return fin
 
@@ -108,37 +108,6 @@ def result(setofindices): # gives a basis of elements (the first element is the 
     tentlist = reduce(tentlist)
     return perm(tentlist)
 
-def reduce(tentlist): # remove duplicates
-    visited=[0 for i in range(len(tentlist))]
-    adj = [[0 for i in range(len(tentlist))] for j in range(len(tentlist))]
-    finlist = []
-    for n in range(len(tentlist)):
-        l = tentlist[n]
-        for ind in range(len(l) - 1):
-            if(a(l[ind], l[ind+1]) == 0):
-                ledit = l[:]
-                ledit[ind], ledit[ind+1] = ledit[ind+1], ledit[ind]
-                m = tentlist.index(ledit)
-                adj[m][n] = 1
-                adj[n][m] = 1
-    adjacents = [[] for i in range(len(tentlist))]
-    for i in range(len(tentlist)):
-        temp = []
-        for j in range(len(tentlist)):
-            if(adj[i][j] == 1):
-                temp.append(j)
-        adjacents[i] = temp
-    for n in range(len(tentlist)):
-        if(visited[n] == 0):
-            finlist.append(tentlist[n])
-            qu = deque([n])
-            while(qu):
-                curr = qu.popleft()
-                for neigh in adjacents[curr]:
-                    if(visited[neigh] == 0):
-                        visited[neigh] = 1
-                        qu.append(neigh)
-    return finlist 
 
 # [1, 2, 3] -> E1 E2 E3
 def indicesToE(setofindices):
