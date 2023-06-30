@@ -7,6 +7,8 @@ a2 = Symbol('a2')
 n = Symbol('n', real=True)
 #n = 5
 f = open(f'baseCase_{n}.txt', 'w')
+d = open('duality_mat.txt', 'w')
+l = open('generator_mat.txt', 'w')
 
 
 def duality(eta, xi):
@@ -102,3 +104,5 @@ print(result, file = f)
 #    print(L.row(i))
 #print(L)
 
+print(latex(D), file = d)
+print(latex(L), file = l)

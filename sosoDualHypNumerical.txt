@@ -1,0 +1,12 @@
+q = q 	 n = 3
+@@@@@@@@ Left sum: @@@@@@@@@@
++i: 1	 summand: q**(-2*H1 - H2 - H3)/q**4
++i: 2	 summand: q**(-H2 - H3)/q**2
++i: 3	 summand: q**(H2 - H3)
+-i: 1 	 summand: q**4*q**(2*H1 + H2 + H3)
+-i: 2 	 summand: q**2*q**(H2 + H3)
+-i: 3 	 summand: q**(-H2 + H3)
+@@@@@@@@ Right sum: @@@@@@@@@@
+i: 1 	 j: 2 	 summand: r**2*F1*q**(-(H1 + H2 + H3))*E1/q**3
+i: 1 	 j: 3 	 summand: r**2*(q*F1*F2 - F2*F1)*q**(-(H1 + H3))*(q*E2*E1 - E1*E2)/q**3
+i: 2 	 j: 3 	 summand: r**2*F2*q**(-H3)*E2/q
