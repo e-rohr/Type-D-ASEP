@@ -1,15 +1,12 @@
 from sympy import *
-import numpy.linalg
 import itertools
 from collections import deque
-f = open('sosoDualHypNumerical.txt', 'w')
-outputFile = open('eDualSymbolic.txt', 'w')
-
+f = open('so6symb.txt', 'w')
 
 n = 4
-#q = Symbol('q')
-#r = Symbol('r')
-q = 10
+var('q')
+var('r')
+#q = 10
 H = symbols('H(1:5)', commutative = False) # These are 0-indexed (so H[0] is H1)
 E = symbols('E(1:5)', commutative = False)
 F = symbols('F(1:5)', commutative = False)
@@ -20,14 +17,13 @@ eDualMatricesCase1 = [[0 for j in range(n)] for i in range(n)]
 
 print(f"q = {q} \t n = {n}", file = f)
 
-
 def inverse(M):
     detM = M.det()
-    size = len(M.row(0))
+    size = shape(M)[0]
     coM = zeros(size)
     signRow = 1
     for i in range(size):
-        signCol = signRow       
+        signCol = signRow       #
         for j in range(size):
             minor = M[:,:]
             minor.col_del(j)
@@ -108,6 +104,37 @@ def result(setofindices): # gives a basis of elements (the first element is the 
     tentlist = reduce(tentlist)
     return perm(tentlist)
 
+def reduce(tentlist): # remove duplicates
+    visited=[0 for i in range(len(tentlist))]
+    adj = [[0 for i in range(len(tentlist))] for j in range(len(tentlist))]
+    finlist = []
+    for n in range(len(tentlist)):
+        l = tentlist[n]
+        for ind in range(len(l) - 1):
+            if(a(l[ind], l[ind+1]) == 0):
+                ledit = l[:]
+                ledit[ind], ledit[ind+1] = ledit[ind+1], ledit[ind]
+                m = tentlist.index(ledit)
+                adj[m][n] = 1
+                adj[n][m] = 1
+    adjacents = [[] for i in range(len(tentlist))]
+    for i in range(len(tentlist)):
+        temp = []
+        for j in range(len(tentlist)):
+            if(adj[i][j] == 1):
+                temp.append(j)
+        adjacents[i] = temp
+    for n in range(len(tentlist)):
+        if(visited[n] == 0):
+            finlist.append(tentlist[n])
+            qu = deque([n])
+            while(qu):
+                curr = qu.popleft()
+                for neigh in adjacents[curr]:
+                    if(visited[neigh] == 0):
+                        visited[neigh] = 1
+                        qu.append(neigh)
+    return finlist 
 
 # [1, 2, 3] -> E1 E2 E3
 def indicesToE(setofindices):
@@ -170,7 +197,6 @@ def dualElements(pathSet, i, j, case):
     #return (eDual, fDual)
     return (eDual, fDual)
 
-
 def leftsum():
     print("@@@@@@@@ Left sum: @@@@@@@@@@", file = f)
     sum = 0
@@ -212,16 +238,34 @@ def rightsum():
                 qExponent -= 2 * H[k-1]
             for k in range(i,j):
                 qExponent += H[k-1]
-            #summand = simplify((coeff * eDual * (q**qExponent) * fDual).subs(q**2 - 1, q*r).subs(q - 1/q, r))
-            summand = ((coeff * eDual * (q**qExponent) * fDual))
+            summand = simplify((coeff * eDual * (q**qExponent) * fDual).subs(q**2 - 1, q*r).subs(q - 1/q, r))
+            #summand = ((coeff * eDual * (q**qExponent) * fDual))
             #print("i: ", i, ", j: ", j, ", summand: ", summand)
             print("i: ", i, ", j: ", j)
             print(f"i: {i} \t j: {j} \t summand: {summand}", file = f)
             sum += summand
     
+    for j in range(1,n+1): # CASE 3
+        for i in range(j+1,n+1): # μ = -L_i > λ = -L_j (i > j)
+            pathSet = [x for x in reversed(range(j, i))] # e_{μλ} = E_{pathSet} = E_{i-1, ..., j}
+            #coeff = q**(1 + 2*i - 2*n) * (q - q**(-1))**(2 * len(pathSet))
+            coeff = q**(1 - 2*i + 2*n) * (q - q**(-1))**(2 * len(pathSet))
+            eDual, fDual = dualElements(pathSet, i, j, 3)
+            qExponent = - H[n-2] + H[n-1] # H_{L_i + L_j} = H_{-μ - λ}
+            for k in range(i,n):
+                qExponent += 2 * H[k-1]
+            for k in range(j,i):
+                qExponent += H[k-1]
+            summand = simplify((coeff * eDual * (q**qExponent) * fDual).subs(q**2 - 1, q*r).subs(q - 1/q, r))
+            #summand = ((coeff * eDual * (q**qExponent) * fDual))
+            #print("-i: ", i, ", -j: ", j, ", summand: ", summand)
+            print("-i: ", i, ", -j: ", j,)
+            print(f"-i: {i} \t -j: {j} \t summand: {summand}", file = f)
+            sum += summand 
 
-    for i in range(1,n+1): # CASE 2
-        for j in range(1,n+1): 
+
+    for i in reversed(range(1,n+1)): # CASE 2
+        for j in reversed(range(1,n+1)): 
             #if (i == 1 and j == 1):
             #   continue
             if (i != n or j != n): # μ = L_i > λ = -L_j
@@ -241,32 +285,19 @@ def rightsum():
                     qExponent += H[k-1]
                 if i < j:
                     qExponent *= -1
-                #summand = simplify(((-1) * coeff * eDual * (q**qExponent) * fDual).subs(q**2 - 1, q*r).subs(q - 1/q, r))
-                summand = (((-1) * coeff * eDual * (q**qExponent) * fDual))
+                summand = simplify(((-1) * coeff * eDual * (q**qExponent) * fDual).subs(q**2 - 1, q*r).subs(q - 1/q, r))
+                #summand = (((-1) * coeff * eDual * (q**qExponent) * fDual))
                 #print("i: ", i, ", -j: ", j, ", summand: ", summand)
                 print("i: ", i, ", -j: ", j)
                 print(f"i: {i} \t -j: {j} \t summand: {summand}", file = f)
                 sum += summand
 
-    for j in range(1,n+1):
-        for i in range(j+1,n+1): # μ = -L_i > λ = -L_j (i > j)
-            pathSet = [x for x in reversed(range(j, i))] # e_{μλ} = E_{pathSet} = E_{i-1, ..., j}
-            #coeff = q**(1 + 2*i - 2*n) * (q - q**(-1))**(2 * len(pathSet))
-            coeff = q**(1 - 2*i + 2*n) * (q - q**(-1))**(2 * len(pathSet))
-            eDual, fDual = dualElements(pathSet, i, j, 3)
-            qExponent = - H[n-2] + H[n-1] # H_{L_i + L_j} = H_{-μ - λ}
-            for k in range(i,n):
-                qExponent += 2 * H[k-1]
-            for k in range(j,i):
-                qExponent += H[k-1]
-            #summand = simplify((coeff * eDual * (q**qExponent) * fDual).subs(q**2 - 1, q*r).subs(q - 1/q, r))
-            summand = ((coeff * eDual * (q**qExponent) * fDual))
-            #print("-i: ", i, ", -j: ", j, ", summand: ", summand)
-            print("-i: ", i, ", -j: ", j,)
-            print(f"-i: {i} \t -j: {j} \t summand: {summand}", file = f)
-            sum += summand 
+    
 
     return sum
 
 #print((leftsum() + rightsum()).subs(q-1/q,r))
-print(f"\n @@@@@@@@ Total Sum @@@@@@@@{(leftsum() + rightsum())}", file = f)
+#print(f"\n @@@@@@@@ Total Sum @@@@@@@@{(leftsum() + rightsum())}", file = f)
+print(result([2,4,3]))
+
+

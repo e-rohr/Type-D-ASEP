@@ -6,12 +6,12 @@ import itertools
 from collections import deque
 
 
-n = 4
-q = 100
-perm_epsilon = q**(-2*n)
+n = 5
+q = 10
+perm_epsilon = 0.00000001
 coeff_epsilon = q**(-2*n)
 
-fname = f"so{2*n}_q_{q}_np.txt"
+fname = f"so{2*n}_q_{q}_epsilon_{perm_epsilon}_np_test.txt"
 f = open(fname, 'w')
 p = open('perm.txt', 'w')
 environ['OMP_NUM_THREADS'] = '6'
@@ -30,21 +30,21 @@ print(f"q = {q} \t n = {n}", file = f)
 
 
 def inverse(M):
-    detM = M.det()
-    size = len(M.row(0))
-    coM = zeros(size)
+    detM = la.det(M)
+    size = len(M)
+    coM = np.zeros((size, size))
     signRow = 1
     for i in range(size):
         signCol = signRow       #
         for j in range(size):
-            minor = M[:,:]
-            minor.col_del(j)
-            minor.row_del(i)
-            coM[i,j] = signCol * minor.det()
+            minor = np.delete(M, i, 0)
+            minor = np.delete(minor, j, 1)
+            coM[i,j] = signCol * la.det(minor)
             signCol *= -1
         signRow *= -1
     adjM = coM.T
-    return (1/detM)*adjM      
+    return (1/detM)*adjM    
+  
 
 def a(i, j): # Cartan matrix lookup
     if (i == j):
@@ -93,28 +93,106 @@ def mat(listOfLists):
 def dual(listOfLists): # for computing specific dual elements
     return la.inv(mat(listOfLists))
 
+# Bareiss algorithm for determinant
+def bareissDet(M):
+    M = [row[:] for row in M] # make a copy to keep original M unmodified
+    N, sign, prev = len(M), 1, 1
+    for i in range(N-1):
+        if M[i][i] == 0: # swap with another row having nonzero i's elem
+            swapto = next( (j for j in range(i+1,N) if M[j][i] != 0), None )
+            if swapto is None:
+                return 0 # all M[*][i] are zero => zero determinant
+            M[i], M[swapto], sign = M[swapto], M[i], -sign
+        for j in range(i+1,N):
+            for k in range(i+1,N):
+                #assert ( M[j][k] * M[i][i] - M[j][i] * M[i][k] ) % prev == 0
+                M[j][k] = ( M[j][k] * M[i][i] - M[j][i] * M[i][k] ) // prev
+        prev = M[i][i]
+    return sign * M[-1][-1]
+
 def perm(tentlist): # given list of lists, removes linear dependence
     fin = []
     for i in range(len(tentlist)):
         fin1 = list(fin)
         fin1.append(tentlist[i])
+        
+        '''l = len(fin1)
+        M = np.zeros((l,l))
+        for i in range(l):
+            mult = 0
+            for j in range(l):
+                lst = pair(fin1[i], fin1[j])
+                for k in lst:
+                    M[i][j] += q**k
+                if min(lst) < mult:
+                    mult = min(lst)
+            for j in range(l):
+                M[i][j] = int(round(M[i][j] * q**(-1 * mult)))'''
         M = mat(fin1)
+        
+
         if (np.abs(la.det(M)) > perm_epsilon):
-            fin.append(tentlist[i])
+        #if (not np.allclose(la.det(M), 0)):
+        #if (la.det(M) != 0):
+            fin.append(tentlist[i])   
     return fin
 
 def permTemp(tentlist): # given list of lists, removes linear dependence
     fin = []
     count = 1
+    prevDet = 1
     for i in range(len(tentlist)):
         fin1 = list(fin)
         fin1.append(tentlist[i])
         M = mat(fin1)
-        if (np.abs(la.det(M)) > perm_epsilon):
+
+
+        '''l = len(fin1)
+        M = np.zeros((l,l))
+        for i in range(l):
+            mult = 0
+            for j in range(l):
+                lst = pair(fin1[i], fin1[j])
+                for k in lst:
+                    M[i][j] += q**k
+                if min(lst) < mult:
+                    mult = min(lst)
+            for j in range(l):
+                M[i][j] = int(round(M[i][j] * q**(-1 * mult)))'''
+        
+        currDet = la.det(M)
+        if (np.abs(currDet / prevDet) > perm_epsilon):
+        #if (not np.allclose(la.det(M), 0)):
+        #if (la.det(M) != 0):
+            #print(f"{count} M = {M}")
             fin.append(tentlist[i])
-            print(f"{count} det M = {la.det(M)}\n")
-            count += 1
+            print(f"{count} added {tentlist[i]}, det M = {currDet}\n", file=f)
+            prevDet = currDet
+        else:
+            print(f"{count} rejected {tentlist[i]}, det M = {currDet}\n", file=f)
+        count += 1
+        print(count)
+    print(f"final basis: {fin}", file = f)
+    print(f"number of accepted terms: {len(fin)}", file = f)
     return fin
+
+def removeperm(tentlist):
+    count = 0
+    for testlist in itertools.combinations(tentlist, 20):
+        count += 1
+        M = mat(testlist)
+
+        if (np.abs(la.det(M)) > perm_epsilon):
+        #if (not np.allclose(la.det(M), 0)):
+        #if (la.det(M) != 0):
+            #print(f"{count} M = {M}")
+            return testlist
+        
+        if (count % 10000 == 0):
+            print(count)
+    print(f"failed", file = f)
+    return tentlist
+
 
 def getPathSet(n, i, j, c):
     match(c):
@@ -235,9 +313,11 @@ def dualElements(pathSet, i, j, case):
 
     eDual = 0 # e*
     fDual = 0 # f*
+
     for k in range(len(eBasis)):
-        eDual += eDualMatrix[0][k] * indicesToF(eBasis[k]) #if (np.abs(eDualMatrix[0][k]) > coeff_epsilon) else 0
-        fDual += fDualMatrix[0][k] * indicesToE(fBasis[k]) #if (np.abs(fDualMatrix[0][k]) > coeff_epsilon) else 0
+        eDual += eDualMatrix[0][k] * indicesToF(eBasis[k]) if (np.abs(eDualMatrix[0][k]) > coeff_epsilon) else 0
+    for k in range(len(fBasis)):
+        fDual += fDualMatrix[0][k] * indicesToE(fBasis[k]) if (np.abs(fDualMatrix[0][k]) > coeff_epsilon) else 0
     return (eDual, fDual)
 
 
@@ -328,7 +408,42 @@ def rightsum():
 
     return sum
 
-#print((leftsum() + rightsum()).subs(q-1/q,r))
+testBasis = resultTemp(getPathSet(5, 1, 5, 1))
+#print((leftsum() + rightsum()))
 #print(f"\n @@@@@@@@ Total Sum @@@@@@@@{(leftsum() + rightsum())}", file = f)
+'''print(f"n = {n}, q = {q}, cutoff = {perm_epsilon}", file=f)
+resultTemp([1,2,4,3,2,1])'''
+
+#print(result([1,3,2]))
+
+'''
+testBasis11 = [[1, 2, 3, 5, 4, 3, 2, 1], [1, 2, 3, 5, 4, 3, 1, 2], [1, 2, 3, 5, 4, 2, 3, 1], [1, 2, 3, 5, 4, 1, 2, 3], [1, 2, 3, 5, 3, 4, 2, 1], [1, 2, 3, 5, 3, 4, 1, 2], [1, 2, 3, 5, 2, 3, 4, 1], [1, 2, 3, 5, 1, 2, 3, 4], [1, 2, 3, 4, 3, 5, 2, 1], [1, 2, 3, 4, 3, 5, 1, 2], [1, 2, 3, 4, 2, 3, 5, 1], [1, 2, 3, 4, 1, 2, 3, 5], [1, 2, 3, 3, 5, 4, 2, 1], [1, 2, 3, 3, 5, 4, 1, 2], [1, 2, 3, 2, 3, 5, 4, 1], [1, 2, 3, 1, 2, 3, 5, 4], [1, 2, 5, 3, 4, 3, 2, 1], [1, 2, 5, 3, 4, 3, 1, 2], [1, 2, 5, 3, 4, 2, 3, 1], [1, 2, 5, 3, 4, 1, 2, 3], [1, 2, 5, 3, 2, 3, 4, 1], [1, 2, 5, 3, 1, 2, 3, 4], [1, 2, 5, 4, 3, 2, 3, 1], [1, 2, 5, 4, 3, 1, 2, 3], [1, 2, 4, 3, 5, 2, 3, 1], [1, 2, 4, 3, 5, 1, 2, 3], [1, 2, 4, 3, 2, 3, 5, 1], [1, 2, 4, 3, 1, 2, 3, 5], [1, 2, 2, 3, 5, 4, 3, 1], [1, 2, 1, 2, 3, 5, 4, 3], [1, 3, 2, 5, 4, 3, 2, 1], [1, 3, 2, 5, 4, 3, 1, 2], [1, 3, 2, 5, 4, 1, 2, 3], [1, 3, 2, 5, 3, 4, 2, 1], [1, 3, 2, 5, 3, 4, 1, 2], [1, 3, 2, 5, 1, 2, 3, 4], [1, 3, 2, 4, 3, 5, 2, 1], [1, 3, 2, 4, 3, 5, 1, 2], [1, 3, 2, 4, 1, 2, 3, 5], [1, 3, 2, 3, 5, 4, 2, 1], [1, 3, 2, 3, 5, 4, 1, 2], [1, 3, 2, 1, 2, 3, 5, 4], [1, 3, 5, 4, 3, 2, 1, 2], [1, 3, 5, 3, 2, 4, 1, 2], [1, 3, 4, 3, 2, 5, 1, 2], [1, 5, 3, 2, 4, 3, 2, 1], [1, 5, 3, 2, 4, 3, 1, 2], [1, 5, 3, 2, 4, 1, 2, 3], [1, 5, 3, 2, 1, 2, 3, 4], [1, 5, 3, 4, 3, 2, 1, 2], [1, 5, 3, 3, 4, 1, 2, 2], [1, 5, 4, 3, 2, 1, 2, 3], [1, 4, 3, 2, 5, 3, 1, 2], [1, 4, 3, 2, 5, 1, 2, 3], [1, 4, 3, 2, 1, 2, 3, 5], [1, 1, 2, 3, 5, 4, 3, 2], [1, 1, 2, 2, 3, 3, 5, 4], [2, 1, 3, 5, 4, 3, 2, 1], [2, 1, 3, 5, 4, 2, 3, 1], [2, 1, 3, 5, 3, 4, 2, 1], [2, 1, 3, 5, 2, 3, 4, 1], [2, 1, 3, 4, 3, 5, 2, 1], [2, 1, 3, 4, 2, 3, 5, 1], [2, 1, 3, 3, 5, 4, 2, 1], [2, 1, 3, 2, 3, 5, 4, 1], [2, 1, 5, 3, 4, 3, 2, 1], [2, 1, 5, 3, 4, 2, 3, 1], [2, 1, 5, 3, 2, 3, 4, 1], [2, 1, 5, 4, 3, 2, 3, 1], [2, 1, 4, 3, 5, 2, 3, 1], [2, 1, 4, 3, 2, 3, 5, 1], [2, 1, 2, 3, 5, 4, 3, 1], [2, 5, 4, 2, 1, 3, 3, 1], [3, 2, 1, 5, 4, 3, 2, 1], [3, 2, 1, 5, 3, 4, 2, 1], [3, 2, 1, 4, 3, 5, 2, 1], [3, 2, 1, 3, 5, 4, 2, 1], [5, 3, 2, 1, 4, 3, 2, 1], [5, 3, 3, 2, 4, 2, 1, 1], [5, 4, 3, 3, 2, 2, 1, 1]]
+testBasis12 = [[1, 2, 3, 5, 4, 3, 2], [1, 2, 3, 5, 4, 2, 3], [1, 2, 3, 5, 3, 4, 2], [1, 2, 3, 5, 2, 3, 4], [1, 2, 3, 4, 3, 5, 2], [1, 2, 3, 4, 2, 3, 5], [1, 2, 3, 3, 5, 4, 2], [1, 2, 3, 2, 3, 5, 4], [1, 2, 5, 3, 4, 3, 2], [1, 2, 5, 3, 4, 2, 3], [1, 2, 5, 3, 2, 3, 4], [1, 2, 5, 4, 3, 2, 3], [1, 2, 4, 3, 5, 2, 3], [1, 2, 4, 3, 2, 3, 5], [1, 2, 2, 3, 5, 4, 3], [1, 3, 2, 5, 4, 3, 2], [1, 3, 2, 5, 3, 4, 2], [1, 3, 2, 4, 3, 5, 2], [1, 3, 2, 3, 5, 4, 2], [1, 5, 3, 2, 4, 3, 2], [2, 1, 3, 5, 4, 3, 2], [2, 1, 3, 5, 4, 2, 3], [2, 1, 3, 5, 3, 4, 2], [2, 1, 3, 5, 2, 3, 4], [2, 1, 3, 4, 3, 5, 2], [2, 1, 3, 4, 2, 3, 5], [2, 1, 3, 3, 5, 4, 2], [2, 1, 3, 2, 3, 5, 4], [2, 1, 5, 3, 4, 3, 2], [2, 1, 5, 3, 4, 2, 3], [2, 1, 5, 3, 2, 3, 4], [2, 1, 5, 4, 3, 2, 3], [2, 1, 4, 3, 5, 2, 3], [2, 1, 4, 3, 2, 3, 5], [2, 1, 2, 3, 5, 4, 3], [2, 3, 5, 4, 3, 2, 1], [2, 3, 5, 4, 2, 1, 3], [2, 3, 5, 3, 4, 2, 1], [2, 3, 5, 2, 1, 3, 4], [2, 3, 4, 3, 5, 2, 1], [2, 3, 4, 2, 1, 3, 5], [2, 3, 3, 5, 4, 2, 1], [2, 5, 3, 4, 3, 2, 1], [2, 5, 3, 4, 2, 1, 3], [2, 4, 3, 5, 2, 1, 3], [3, 2, 1, 5, 4, 3, 2], [3, 2, 1, 5, 3, 4, 2], [3, 2, 1, 4, 3, 5, 2], [3, 2, 1, 3, 5, 4, 2], [3, 2, 5, 4, 3, 2, 1], [3, 2, 5, 3, 4, 2, 1], [3, 2, 4, 3, 5, 2, 1], [5, 3, 2, 1, 4, 3, 2], [5, 3, 2, 4, 3, 2, 1], [4, 3, 2, 1, 5, 3, 2]]
+testBasis13 = [[1, 2, 3, 5, 4, 3], [1, 2, 3, 5, 3, 4], [1, 2, 3, 4, 3, 5], [1, 2, 3, 3, 5, 4], [1, 2, 5, 3, 4, 3], [1, 3, 2, 5, 4, 3], [1, 3, 2, 5, 3, 4], [1, 3, 2, 4, 3, 5], [1, 3, 2, 3, 5, 4], [1, 3, 5, 4, 3, 2], [1, 3, 5, 3, 2, 4], [1, 3, 4, 3, 2, 5], [1, 5, 3, 2, 4, 3], [1, 5, 3, 4, 3, 2], [1, 4, 3, 2, 5, 3], [2, 1, 3, 5, 4, 3], [2, 1, 3, 5, 3, 4], [2, 1, 3, 4, 3, 5], [2, 1, 3, 3, 5, 4], [2, 1, 5, 3, 4, 3], [3, 2, 1, 5, 4, 3], [3, 2, 1, 5, 3, 4], [3, 2, 1, 4, 3, 5], [3, 2, 1, 3, 5, 4], [3, 5, 4, 3, 2, 1], [3, 5, 3, 2, 1, 4], [3, 4, 3, 2, 1, 5], [5, 3, 2, 1, 4, 3], [5, 3, 4, 3, 2, 1], [4, 3, 2, 1, 5, 3]]
+testBasis14 = [[1, 2, 3, 5, 4], [1, 2, 5, 3, 4], [1, 2, 5, 4, 3], [1, 2, 4, 3, 5], [1, 3, 2, 5, 4], [1, 5, 3, 2, 4], [1, 5, 4, 3, 2], [1, 4, 3, 2, 5], [2, 1, 3, 5, 4], [2, 1, 5, 3, 4], [2, 1, 5, 4, 3], [2, 1, 4, 3, 5], [3, 2, 1, 5, 4], [5, 3, 2, 1, 4], [5, 4, 3, 2, 1], [4, 3, 2, 1, 5]]
+testBasis15 = [[1, 2, 3, 4], [1, 2, 4, 3], [1, 3, 2, 4], [1, 4, 3, 2], [2, 1, 3, 4], [2, 1, 4, 3], [3, 2, 1, 4], [4, 3, 2, 1]]
+'''
+
+print(len(testBasis))
+
+fin = []
+count = 1
+for i in range(len(testBasis)):
+    fin.append(testBasis[i])
+    M = mat(fin)
+    print(f"{count} det M = {la.det(M)}\n", file=f)
+    count += 1
+
+eDualMatrix = dual(testBasis)
+
+eDual = 0 # e*
+
+for k in range(len(testBasis)):
+    eDual += eDualMatrix[0][k] * indicesToF(testBasis[k]) * (q - 1/q)**3 if (np.abs(eDualMatrix[0][k]) > coeff_epsilon) else 0
+    print(eDualMatrix[0][k] * indicesToF(testBasis[k]), file=f)
+
+print(eDual, file=f)
+
+#print(result(getPathSet(4, 1, 1, 2)))
 
 
