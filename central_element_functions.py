@@ -14,7 +14,6 @@ eBasesCase2 = [[0 for j in range(n)] for i in range(n)] # Stores eBasis for diff
 eDualMatricesCase2 = [[0 for j in range(n)] for i in range(n)]
 eBasesCase1 = [[0 for j in range(n)] for i in range(n)] 
 eDualMatricesCase1 = [[0 for j in range(n)] for i in range(n)]
-
 print(f"q = {q} \t n = {n}", file = f)
 
 def inverse(M):
@@ -89,12 +88,16 @@ def dual(listofLists): # for computing specific dual elements
 
 def perm(tentlist): # given list of lists, removes linear dependence
     fin = []
+    count = 1
     for i in range(len(tentlist)):
         fin1 = list(fin)
         fin1.append(tentlist[i])
         M = mat(fin1)
-        if(M.det() != 0):
+        d = M.det()
+        print(f"{count} det M = {d}", file = f)
+        if(d != 0):
             fin.append(tentlist[i])
+        count += 1
     return fin
 
 def result(setofindices): # gives a basis of elements (the first element is the basis is setofindices)

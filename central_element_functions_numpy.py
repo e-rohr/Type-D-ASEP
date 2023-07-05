@@ -13,7 +13,6 @@ coeff_epsilon = q**(-2*n)
 
 fname = f"so{2*n}_q_{q}_epsilon_{perm_epsilon}_np_test.txt"
 f = open(fname, 'w')
-p = open('perm.txt', 'w')
 environ['OMP_NUM_THREADS'] = '6'
 
 
@@ -112,6 +111,8 @@ def bareissDet(M):
 
 def perm(tentlist): # given list of lists, removes linear dependence
     fin = []
+    count = 1
+    prev = 1
     for i in range(len(tentlist)):
         fin1 = list(fin)
         fin1.append(tentlist[i])
@@ -218,13 +219,6 @@ def result(setofindices): # gives a basis of elements (the first element is the 
         tentlist[i] = list(tentlist[i])
     tentlist = reduce(tentlist)
     return perm(tentlist)
-
-def resultTemp(setofindices): # gives a basis of elements (the first element is the basis is setofindices)
-    tentlist = list(dict.fromkeys(itertools.permutations(setofindices)))
-    for i in range(len(tentlist)):
-        tentlist[i] = list(tentlist[i])
-    tentlist = reduce(tentlist)
-    return permTemp(tentlist)
 
 def reduce(tentlist): # remove duplicates
     visited=[0 for i in range(len(tentlist))]
@@ -370,9 +364,6 @@ def rightsum():
         for j in range(1,n+1): 
             if (i != n or j != n): # μ = L_i > λ = -L_j
                 pathSet = getPathSet(n,i,j,2) # e_{μλ} = +- E_{pathSet} = +- E_{i, ..., n-2, n, n-1, ..., j} (if i < n) or +- E_{n, n-2, ..., j} (if i = n) or +- E_{i, ..., n-2, n} (if j = n)
-                if (i == 1 and j == 1):
-                    print(resultTemp(pathSet), file = p)
-
                 #coeff = q**(2 + 2*n - 2*i) * (q - q**(-1))**(2 * len(pathSet)) if i == j else q**(1 + 2*n - 2*i) * (q - q**(-1))**(2 * len(pathSet))
                 coeff = q**(2 - 2*n + 2*i) * (q - q**(-1))**(2 * len(pathSet)) if i == j else q**(1 - 2*n + 2*i) * (q - q**(-1))**(2 * len(pathSet))
                 eDual, fDual = dualElements(pathSet, i, j, 2)
