@@ -459,7 +459,7 @@ def rightsum():
 
 
 #print((leftsum() + rightsum()).subs(q-1/q,r))
-#centralElement = leftsum() + rightsum()
+centralElement = leftsum() + rightsum()
 
 #print(f"\n @@@@@@@@ Total Sum @@@@@@@@{(centralElement)}", file = fout)
 #print(result(getPathSet(4,1,1,2)), file = fout)
@@ -473,16 +473,12 @@ subList += [(KNeg[i], kNeg(i + 1)) for i in range(n)]
 #print(subList)
 #print(Ks)
 
-'''print(centralElement)
+print(centralElement)
 
-representation = centralElement.subs(subList).doit()
-final = zeros(2*n)
+'''representation = centralElement.subs(subList).doit()
+print(representation)
 for i in range(2*n):
-    for j in range(2*n):
-         final[i,j] = collect(powsimp(powdenest(expand(representation[i,j]))), q)
-print(final, file = fout)
-for i in range(2*n):
-    print(collect(powsimp(powdenest(expand(final[i,i]))), q), file = fout)'''
+    print(representation[i,i])'''
 
 '''C1  = [[1, 2, 4, 3, 2, 1], [1, 2, 4, 3, 1, 2], [1, 2, 4, 2, 3, 1], [1, 2, 4, 1, 2, 3], [1, 2, 3, 2, 4, 1], [1, 2, 3, 1, 2, 4], [1, 2, 2, 4, 3, 1], [1, 2, 1, 2, 4, 3], [1, 4, 2, 3, 2, 1], [1, 4, 2, 3, 1, 2], [1, 4, 2, 1, 2, 3], [1, 4, 3, 2, 1, 2], [1, 3, 2, 4, 1, 2], [1, 3, 2, 1, 2, 4], [1, 1, 2, 4, 3, 2], [2, 1, 4, 3, 2, 1], [2, 1, 4, 2, 3, 1], [2, 1, 3, 2, 4, 1], [2, 1, 2, 4, 3, 1], [4, 2, 1, 3, 2, 1]]
 

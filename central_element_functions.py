@@ -301,6 +301,6 @@ def rightsum():
 
 #print((leftsum() + rightsum()).subs(q-1/q,r))
 #print(f"\n @@@@@@@@ Total Sum @@@@@@@@{(leftsum() + rightsum())}", file = f)
-print(result([2,4,3]))
+print(inverse(mat(result([4,3,2]))))
 
 

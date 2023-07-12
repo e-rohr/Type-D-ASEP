@@ -1,16 +1,20 @@
 from sympy import *
-import numpy.linalg
 import itertools
 from collections import deque
+import numpy as np
+import numpy.linalg as la
 
 
 
 n = 5
-fout = open(f'so{2*n}_ge_symb.txt', 'w')
-q = Symbol('q')
-r = Symbol('r')
-#q = 10
-K = []
+fout = open(f'so{2*n}_ge_num.txt', 'w')
+#q = Symbol('q')
+#r = Symbol('r')
+q = 10
+perm_epsilon = 0.00000001
+coeff_epsilon = q**(-2*n)
+
+'''K = []
 KNeg = []
 H = []
 F = []
@@ -20,15 +24,17 @@ for i in range(2*n):
     KNeg.append(MatrixSymbol(f'KNeg{i+1}',2*n, 2*n))
     H.append(MatrixSymbol(f'H{i+1}',2*n, 2*n))
     E.append(MatrixSymbol(f'E{i+1}',2*n, 2*n))
-    F.append(MatrixSymbol(f'F{i+1}',2*n, 2*n))
+    F.append(MatrixSymbol(f'F{i+1}',2*n, 2*n))'''
 
-'''H = symbols('H(1:6)', commutative = False) # These are 0-indexed (so H[0] is H1)
+H = symbols('H(1:6)', commutative = False) # These are 0-indexed (so H[0] is H1)
 E = symbols('E(1:6)', commutative = False)
-F = symbols('F(1:6)', commutative = False)'''
-eBasesCase2 = [[0 for j in range(n)] for i in range(n)] # Stores eBasis for different values of i and j (eBasis for i, j is the same as fBasis for j, i)
+F = symbols('F(1:6)', commutative = False)
+K = symbols('K(1:6)', commutative = False)
+KNeg = symbols('KNeg(1:6)', commutative = False)
+'''eBasesCase2 = [[0 for j in range(n)] for i in range(n)] # Stores eBasis for different values of i and j (eBasis for i, j is the same as fBasis for j, i)
 eDualMatricesCase2 = [[0 for j in range(n)] for i in range(n)]
 eBasesCase1 = [[0 for j in range(n)] for i in range(n)] 
-eDualMatricesCase1 = [[0 for j in range(n)] for i in range(n)]
+eDualMatricesCase1 = [[0 for j in range(n)] for i in range(n)]'''
 print(f"q = {q} \t n = {n}", file = fout)
 
 
@@ -109,7 +115,6 @@ def f(index):
 
 def inverse(M):
     count = 1
-    print(count)
     detM = M.det(method = 'domain-ge')
     size = len(M.row(0))
     coM = zeros(size)
@@ -121,7 +126,7 @@ def inverse(M):
             minor.col_del(j)
             minor.row_del(i)
             coM[i,j] = signCol * minor.det(method = 'domain-ge')
-            print(f'{count} \n')
+            #print(f'{count} \n')
             count += 1
             signCol *= -1
         signRow *= -1
@@ -167,24 +172,18 @@ def pair(list1, list2):
             ret.extend(ih)
     return ret
 
-def mat(listofLists):
-    M = zeros(len(listofLists))
-    for i in range(len(listofLists)):
-        for j in range(len(listofLists)):
-            lst = pair(listofLists[i], listofLists[j])
+def mat(listOfLists):
+    l = len(listOfLists)
+    M = np.zeros((l,l))
+    for i in range(l):
+        for j in range(l):
+            lst = pair(listOfLists[i], listOfLists[j])
             for k in lst:
-                M[i, j] += q**k
-    return M.applyfunc(simplify)
+                M[i][j] += q**k
+    return M
 
-def dual(listofLists): # for computing specific dual elements
-    M = zeros(len(listofLists))
-    for i in range(len(listofLists)):
-        for j in range(len(listofLists)):
-            lst = pair(listofLists[i], listofLists[j])
-            for k in lst:
-                M[i, j] += q**k
-    N= inverse(M)
-    return N.applyfunc(simplify)
+def dual(listOfLists): # for computing specific dual elements
+    return la.inv(mat(listOfLists))
 
 def perm(tentlist): # given list of lists, removes linear dependence
     fin = []
@@ -193,12 +192,12 @@ def perm(tentlist): # given list of lists, removes linear dependence
         fin1 = list(fin)
         fin1.append(tentlist[i])
         M = mat(fin1)
-        d = M.det(method = 'domain-ge')
-        if(d != 0):
-            fin.append(tentlist[i])
-        count += 1
+        
+        if (np.abs(la.det(M)) > perm_epsilon):
+            fin.append(tentlist[i])  
+
         print(count)
-    print(fin)
+        count += 1     
     return fin
 
 def getPathSet(n, i, j, c):
@@ -278,7 +277,7 @@ def indicesToF(setofindices):
 
 # Takes in a path set for E and returns (e*, f*)
 def dualElements(pathSet, i, j, case):
-    if (case == 1):
+    '''if (case == 1):
         eBasis = result(pathSet)
         eDualMatrix = dual(eBasis)
         eBasesCase1[i-1][j-1] = eBasis
@@ -308,19 +307,22 @@ def dualElements(pathSet, i, j, case):
         eBasis = eBasesCase1[i-1][j-1]
         eDualMatrix = eDualMatricesCase1[i-1][j-1]
         fBasis = eBasesCase1[j-1][i-1]
-        fDualMatrix = eDualMatricesCase1[j-1][i-1]
+        fDualMatrix = eDualMatricesCase1[j-1][i-1]'''
 
     
-    #fBasis = result(list(reversed(pathSet)))
-    #eDualMatrix = dual(eBasis)
-    #print("eDualCoeffs: ", eDualCoeffs)
-    #fDualMatrix = dual(fBasis) 
-    eDual = ZeroMatrix(2*n, 2*n) # e*
-    fDual = ZeroMatrix(2*n, 2*n) # f*
+    eBasis = result(pathSet)
+    fBasis = result(list(reversed(pathSet)))
+    eDualMatrix = dual(eBasis)
+    fDualMatrix = dual(fBasis)
+
+    #eDual = ZeroMatrix(2*n, 2*n) # e*
+    #fDual = ZeroMatrix(2*n, 2*n) # f*
+    eDual = 0
+    fDual = 0
     for k in range(len(eBasis)):
-        eDual += eDualMatrix[0,k] * indicesToF(eBasis[k])
-        fDual += fDualMatrix[0,k] * indicesToE(fBasis[k])
-    #return (eDual, fDual)
+        eDual += eDualMatrix[0][k] * indicesToF(eBasis[k]) if (np.abs(eDualMatrix[0][k]) > coeff_epsilon) else 0
+    for k in range(len(fBasis)):
+        fDual += fDualMatrix[0][k] * indicesToE(fBasis[k]) if (np.abs(fDualMatrix[0][k]) > coeff_epsilon) else 0
     return (eDual, fDual)
 
 
@@ -330,7 +332,8 @@ def dualElements(pathSet, i, j, case):
 
 def leftsum():
     print("@@@@@@@@ Left sum: @@@@@@@@@@", file = fout)
-    sum = ZeroMatrix(2*n, 2*n)
+    #sum = ZeroMatrix(2*n, 2*n)
+    sum = 0
     for i in range(1,n+1): # L_i
         #secondterm = H[n-2] - H[n-1] # H_{n-1} - H_n
         secondterm = K[n-2] * KNeg[n-1]
@@ -351,7 +354,6 @@ def leftsum():
         for j in range(i,n):
             #secondterm += 2 * H[j-1]
             secondterm *= K[j-1]**2
-        #summand = q**(2*i - 2*n) * (q**secondterm)
         #summand = q**(2*n - 2*i) * (q**secondterm)
         summand = q**(2*n - 2*i) * secondterm
         sum += summand
@@ -362,14 +364,15 @@ def leftsum():
 
 def rightsum():
     print("@@@@@@@@ Right sum: @@@@@@@@@@", file = fout)
-    sum = ZeroMatrix(2*n, 2*n)
+    #sum = ZeroMatrix(2*n, 2*n)
+    sum = 0
   
     for i in range(1,n+1):   # Computing dual elements e* and f* CASE 1
         for j in range(i+1,n+1): # μ = L_i > λ = L_j (i < j)
             pathSet = [x for x in range(i, j)] # e_{μλ} = E_{pathSet} = E_{i, ..., j - 1}
-            #coeff = q**(1 + 2*n - 2*i) * (q - q**(-1))**(2 * len(pathSet))
             coeff = q**(1 - 2*n + 2*i) * (q - q**(-1))**(2 * len(pathSet))
             eDual, fDual = dualElements(pathSet, i, j, 1)
+            
             #qExponent = H[n-2] - H[n-1] # H_{-L_i - L_j} = H_{-μ - λ}
             kTerm = K[n-2] * KNeg[n-1] # q**(H_{-L_i - L_j}) = q**H_{-μ - λ}
             for k in range(i,n):
@@ -378,6 +381,7 @@ def rightsum():
             for k in range(i,j):
                 #qExponent += H[k-1]
                 kTerm *= K[k-1]
+            print(coeff, eDual, kTerm, fDual)
             #summand = simplify((coeff * eDual * (q**qExponent) * fDual).subs(q**2 - 1, q*r).subs(q - 1/q, r))
             #summand = ((coeff * eDual * (q**qExponent) * fDual))
             summand = ((coeff * eDual * kTerm * fDual))
@@ -425,7 +429,7 @@ def rightsum():
                 print(f"i: {i} \t -j: {j} \t summand: {summand}", file = fout)
                 sum += summand
 
-    for j in range(1,n+1):
+    for j in range(1,n+1): # CASE 3
         for i in range(j+1,n+1): # μ = -L_i > λ = -L_j (i > j)
             pathSet = [x for x in reversed(range(j, i))] # e_{μλ} = E_{pathSet} = E_{i-1, ..., j}
             #coeff = q**(1 + 2*i - 2*n) * (q - q**(-1))**(2 * len(pathSet))
@@ -444,7 +448,7 @@ def rightsum():
             summand = ((coeff * eDual * kTerm * fDual))
             print("-i: ", i, ", -j: ", j,)
             print(f"-i: {i} \t -j: {j} \t summand: {summand}", file = fout)
-            sum += summand 
+            sum += summand
 
     return sum
 
@@ -453,36 +457,33 @@ def rightsum():
 
 ################# Testing and Printing ###########################
 
-basis13 = [[1, 2, 3, 5, 4, 3], [1, 2, 3, 5, 3, 4], [1, 2, 3, 4, 3, 5], [1, 2, 3, 3, 5, 4], [1, 2, 5, 3, 4, 3], [1, 3, 2, 5, 4, 3], [1, 3, 2, 5, 3, 4], [1, 3, 2, 4, 3, 5], [1, 3, 2, 3, 5, 4], [1, 3, 5, 4, 3, 2], [1, 3, 5, 3, 2, 4], [1, 3, 4, 3, 2, 5], [1, 5, 3, 2, 4, 3], [1, 5, 3, 4, 3, 2], [1, 4, 3, 2, 5, 3], [2, 1, 3, 5, 4, 3], [2, 1, 3, 5, 3, 4], [2, 1, 3, 4, 3, 5], [2, 1, 3, 3, 5, 4], [2, 1, 5, 3, 4, 3], [3, 2, 1, 5, 4, 3], [3, 2, 1, 5, 3, 4], [3, 2, 1, 4, 3, 5], [3, 2, 1, 3, 5, 4], [3, 5, 4, 3, 2, 1], [3, 5, 3, 2, 1, 4], [3, 4, 3, 2, 1, 5], [5, 3, 2, 1, 4, 3], [5, 3, 4, 3, 2, 1], [4, 3, 2, 1, 5, 3]]
-print(dual(basis13), file = fout)
 
 #print((leftsum() + rightsum()).subs(q-1/q,r))
-#centralElement = leftsum() + rightsum()
-#centralElement = rightsum()
+centralElement = leftsum() + rightsum()
 
 #print(f"\n @@@@@@@@ Total Sum @@@@@@@@{(centralElement)}", file = fout)
 #print(result(getPathSet(4,1,1,2)), file = fout)
 
-'''subList = [(E[i], e(i + 1)) for i in range(n)]
+subList = [(E[i], e(i + 1)) for i in range(n)]
 subList += [(F[i], f(i + 1)) for i in range(n)]
 subList += [(K[i], k(i + 1)) for i in range(n)]
-subList += [(KNeg[i], kNeg(i + 1)) for i in range(n)]'''
+subList += [(KNeg[i], kNeg(i + 1)) for i in range(n)]
+
 
 #print(subList)
 #print(Ks)
 
-#print(centralElement)
-
-'''representation = centralElement.subs(subList).doit()
-final = zeros(2*n)
+print(centralElement)
+'''
+representation = centralElement.subs(subList).doit()
+print(representation)
 for i in range(2*n):
-    for j in range(2*n):
-         final[i,j] = collect(powsimp(powdenest(expand(representation[i,j]))), q)
-print(final, file = fout)
-for i in range(2*n):
-    print(collect(powsimp(powdenest(expand(final[i,i]))), q), file = fout)'''
+    print(representation[i,i])
 
-'''C1  = [[1, 2, 4, 3, 2, 1], [1, 2, 4, 3, 1, 2], [1, 2, 4, 2, 3, 1], [1, 2, 4, 1, 2, 3], [1, 2, 3, 2, 4, 1], [1, 2, 3, 1, 2, 4], [1, 2, 2, 4, 3, 1], [1, 2, 1, 2, 4, 3], [1, 4, 2, 3, 2, 1], [1, 4, 2, 3, 1, 2], [1, 4, 2, 1, 2, 3], [1, 4, 3, 2, 1, 2], [1, 3, 2, 4, 1, 2], [1, 3, 2, 1, 2, 4], [1, 1, 2, 4, 3, 2], [2, 1, 4, 3, 2, 1], [2, 1, 4, 2, 3, 1], [2, 1, 3, 2, 4, 1], [2, 1, 2, 4, 3, 1], [4, 2, 1, 3, 2, 1]]
+'''
+
+'''
+C1  = [[1, 2, 4, 3, 2, 1], [1, 2, 4, 3, 1, 2], [1, 2, 4, 2, 3, 1], [1, 2, 4, 1, 2, 3], [1, 2, 3, 2, 4, 1], [1, 2, 3, 1, 2, 4], [1, 2, 2, 4, 3, 1], [1, 2, 1, 2, 4, 3], [1, 4, 2, 3, 2, 1], [1, 4, 2, 3, 1, 2], [1, 4, 2, 1, 2, 3], [1, 4, 3, 2, 1, 2], [1, 3, 2, 4, 1, 2], [1, 3, 2, 1, 2, 4], [1, 1, 2, 4, 3, 2], [2, 1, 4, 3, 2, 1], [2, 1, 4, 2, 3, 1], [2, 1, 3, 2, 4, 1], [2, 1, 2, 4, 3, 1], [4, 2, 1, 3, 2, 1]]
 
 
 
@@ -503,4 +504,5 @@ B = I*m
 for i in range(len(C1)):
     for j in range(len(C1)):
          B[i,j] = factor(collect(powsimp(powdenest(expand(B[i,j]))), q))
-print(B)'''
+print(B)
+'''
