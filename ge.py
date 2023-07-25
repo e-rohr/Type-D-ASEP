@@ -425,7 +425,7 @@ def rightsum():
                 print(f"i: {i} \t -j: {j} \t summand: {summand}", file = fout)
                 sum += summand
 
-    for j in range(1,n+1):
+    for j in range(1,n+1): # CASE 3
         for i in range(j+1,n+1): # μ = -L_i > λ = -L_j (i > j)
             pathSet = [x for x in reversed(range(j, i))] # e_{μλ} = E_{pathSet} = E_{i-1, ..., j}
             #coeff = q**(1 + 2*i - 2*n) * (q - q**(-1))**(2 * len(pathSet))
