@@ -380,5 +380,3 @@ def sum():
 
     return sum
 
-fout = open('numtestkarthik.txt', 'w')
-print(sum(), file = fout)
