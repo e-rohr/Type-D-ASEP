@@ -1,47 +1,104 @@
-from sympy import symbols
+from sympy import *
 import numpy as np
 import numpy.linalg as la
 import itertools
 from collections import deque
 
 
-n = 3
+n = 5
 q = 10
-perm_epsilon = 0.0000001
-coeff_epsilon = q**(-2*n)
+perm_epsilon = 0.00001 # floating point error cutoff to be used in perm()
+coeff_epsilon = 10**(-10) # floating point error cutoff to be used in dualElements()
 
-fname = f"so6numpytest.txt"
-f = open(fname, 'w')
-
-
-######## Generators ###################
-H = symbols('H(1:6)', commutative = False) # These are 0-indexed (so H[0] is H1)
-E = symbols('E(1:6)', commutative = False)
-F = symbols('F(1:6)', commutative = False)
-#eBasesCase2 = [[0 for j in range(n)] for i in range(n)] # Stores eBasis for different values of i and j (eBasis for i, j is the same as fBasis for j, i)
-#eDualMatricesCase2 = [[0 for j in range(n)] for i in range(n)]
-#eBasesCase1 = [[0 for j in range(n)] for i in range(n)] 
-#eDualMatricesCase1 = [[0 for j in range(n)] for i in range(n)]
-
-print(f"q = {q} \t n = {n}", file = f)
+eBasesCase2 = [[0 for j in range(n)] for i in range(n)] # Stores eBasis for different values of i and j (eBasis for i, j is the same as fBasis for j, i)
+eDualMatricesCase2 = [[0 for j in range(n)] for i in range(n)]
+eBasesCase1 = [[0 for j in range(n)] for i in range(n)] 
+eDualMatricesCase1 = [[0 for j in range(n)] for i in range(n)]
 
 
-def inverse(M):
-    detM = la.det(M)
-    size = len(M)
-    coM = np.zeros((size, size))
-    signRow = 1
-    for i in range(size):
-        signCol = signRow       
-        for j in range(size):
-            minor = np.delete(M, i, 0)
-            minor = np.delete(minor, j, 1)
-            coM[i,j] = signCol * la.det(minor)
-            signCol *= -1
-        signRow *= -1
-    adjM = coM.T
-    return (1/detM)*adjM    
-  
+
+
+
+########### Representations of generators ###############
+
+# 1-indexed, returns K_index in the fundamental representation of so(2n)
+def k(index):
+    K = np.zeros((2*n, 2*n))
+    H = h(index)
+    for i in range(2*n):
+        K[i, i] = q**(H[i,i])
+    return K
+
+
+# 1-indexed, returns 1/K_index in the fundamental representation of so(2n)
+def kNeg(index):
+    K = np.zeros((2*n, 2*n))
+    H = h(index)
+    for i in range(2*n):
+        K[i, i] = q**(-H[i,i])
+    return K
+
+
+# 1-indexed, returns K_index in the fundamental representation of so(2n)
+def h(index):
+    H = np.zeros((2*n, 2*n))
+    if (index < n):
+        H[index - 1, index - 1] = 1
+        H[index, index] = -1
+        H[n + index - 1, n + index - 1] = -1
+        H[n + index, n + index] = 1
+    else:
+        H[n - 2, n - 2] = 1
+        H[n - 1, n - 1] = 1
+        H[2*n - 2, 2*n - 2] = -1
+        H[2*n - 1, 2*n - 1] = -1
+        
+    return H
+
+# 1-indexed, returns E_index in the fundamental representation of so(2n)
+def e(index):
+    E = np.zeros((2*n, 2*n))
+    if (index < n):
+        E[index - 1, index] = 1
+        E[n + index, n + index - 1] = -1
+    else:
+        E[n - 2, 2*n - 1] = 1
+        E[n - 1, 2*n - 2] = -1
+    return E
+
+
+# 1-indexed, returns F_index in the fundamental representation of so(2n)
+def f(index):
+    F = np.zeros((2*n, 2*n))
+    if (index < n):
+        F[index, index - 1] = 1
+        F[n - 1 + index, n + index] = -1
+    else:
+        F[2*n - 2, n - 1] = 1
+        F[2*n - 1, n - 2] = - 1
+    return F
+
+# K_i's, K_i^{-1}'s, F_i's, E_i's
+K = []
+KNeg = []
+F = []
+E = []
+'''for i in range(2*n):
+    K.append(k(i+1))
+    KNeg.append(kNeg(i+1))
+    E.append(e(i+1))
+    F.append(f(i+1))'''
+
+for i in range(2*n):
+    K.append(Symbol(f'K{i+1}', commutative = False))
+    KNeg.append(Symbol(f'KNeg{i+1}', commutative = False))
+    E.append(Symbol(f'E{i+1}', commutative = False))
+    F.append(Symbol(f'F{i+1}', commutative = False))
+
+
+
+
+######## Andrew Lin Code (Modified for use with numpy) ########
 
 def a(i, j): # Cartan matrix lookup
     if (i == j):
@@ -51,6 +108,7 @@ def a(i, j): # Cartan matrix lookup
     if (i == n-2 and j == n or i == n and j == n-2):
         return -1
     return 0
+
 
 def pair(list1, list2):
     ret = []
@@ -77,6 +135,7 @@ def pair(list1, list2):
             ret.extend(ih)
     return ret
 
+
 def mat(listOfLists):
     l = len(listOfLists)
     M = np.zeros((l,l))
@@ -87,17 +146,22 @@ def mat(listOfLists):
                 M[i][j] += q**k
     return M
 
+
 def dual(listOfLists): # for computing specific dual elements
     return la.inv(mat(listOfLists))
 
+# Modified from original code to use with numpy
 def perm(tentlist): # given list of lists, removes linear dependence
     fin = []
+    prevDet = 1
     for i in range(len(tentlist)):
         fin1 = list(fin)
         fin1.append(tentlist[i])
         M = mat(fin1)
-        if (np.abs(la.det(M)) > perm_epsilon):
-            fin.append(tentlist[i])   
+        currDet = la.det(M)
+        if (np.abs(currDet / prevDet) > perm_epsilon):
+            fin.append(tentlist[i])
+            prevDet = currDet
     return fin
 
 
@@ -119,12 +183,17 @@ def getPathSet(n, i, j, c):
     return pathSet
 
 
-def result(setofindices): # gives a basis of elements (the first element is the basis is setofindices)
-    tentlist = list(dict.fromkeys(itertools.permutations(setofindices)))
+'''
+The first line of result was changed from the original code so that 
+the first row of the matrix returned by dual() would correspond to the desired dual element.
+'''
+def result(setofindices): # gives a basis of elements (the first element is the basis of setofindices)
+    tentlist = list(dict.fromkeys(itertools.permutations(setofindices))) 
     for i in range(len(tentlist)):
         tentlist[i] = list(tentlist[i])
     tentlist = reduce(tentlist)
     return perm(tentlist)
+
 
 def reduce(tentlist): # remove duplicates
     visited=[0 for i in range(len(tentlist))]
@@ -158,29 +227,44 @@ def reduce(tentlist): # remove duplicates
                         qu.append(neigh)
     return finlist 
 
-# [1, 2, 3] -> E1 E2 E3
+
+
+
+
+########## Dual Element Code ########## 
+
+# Takes in a set of indices and returns the corresponding product of E_i's
+# Ex: [1, 2, 3] -> E1 E2 E3
 def indicesToE(setofindices):
     solution = 1
     for index in setofindices:
         solution = solution * E[index-1]
     return solution
 
-# [1, 2, 3] -> F1 F2 F3
+
+# Takes in a set of indices and returns the corresponding product of F_i's
+# Ex: [1, 2, 3] -> F1 F2 F3
 def indicesToF(setofindices):
     solution = 1
     for index in setofindices:
         solution = solution * F[index-1]
     return solution
 
+
 # Takes in a path set for E and returns (e*, f*)
 def dualElements(pathSet, i, j, case):
-    '''if (case == 1):
+    # Calculate the basis and q-pairings matrix for e = E_{pathSet} and f = F_{pathSet}
+    # Store these in eBasesCase1, eBasesCase2, eDualMatricesCase1, and eDualMatricesCase2 to avoid redundant computations
+    if (case == 1):
         eBasis = result(pathSet)
         eDualMatrix = dual(eBasis)
+        
+
         eBasesCase1[i-1][j-1] = eBasis
         eDualMatricesCase1[i-1][j-1] = eDualMatrix
         fBasis = result(list(reversed(pathSet)))
         fDualMatrix = dual(fBasis)
+        
         eBasesCase1[j-1][i-1] = fBasis
         eDualMatricesCase1[j-1][i-1] = fDualMatrix
     if (case == 2):
@@ -204,13 +288,9 @@ def dualElements(pathSet, i, j, case):
         eBasis = eBasesCase1[i-1][j-1]
         eDualMatrix = eDualMatricesCase1[i-1][j-1]
         fBasis = eBasesCase1[j-1][i-1]
-        fDualMatrix = eDualMatricesCase1[j-1][i-1]'''
-    
-    eBasis = result(pathSet)
-    fBasis = result(list(reversed(pathSet)))
-    eDualMatrix = dual(eBasis)
-    fDualMatrix = dual(fBasis)
+        fDualMatrix = eDualMatricesCase1[j-1][i-1]
 
+    # Calculate e*, f*
     eDual = 0 # e*
     fDual = 0 # f*
 
@@ -221,90 +301,84 @@ def dualElements(pathSet, i, j, case):
     return (eDual, fDual)
 
 
-def leftsum():
-    print("@@@@@@@@ Left sum: @@@@@@@@@@", file = f)
-    sum = 0
-    for i in range(1,n+1): # L_i
-        secondterm = H[n-2] - H[n-1] # H_{n-1} - H_n
-        for j in range(i,n):
-            secondterm -= 2 * H[j-1]
-        summand = q**(-2*n + 2*i) * (q**secondterm)
-        sum += summand
-        #print("+i: ", i, ", summand: ", summand)
-        print("+i: ", i)
-        print(f"+i: {i}\t summand: {summand}", file = f)
 
-    for i in range(1,n+1): # -L_i
-        secondterm = - H[n-2] + H[n-1] # H_{n-1} - H_n
-        for j in range(i,n):
-            secondterm += 2 * H[j-1]
-        summand = q**(2*n - 2*i) * (q**secondterm)
-        sum += summand
-        #print("-i: ", i, ", summand: ", summand)
-        print("-i: ", i)
-        print(f"-i: {i} \t summand: {summand}", file = f)
-    return sum
 
-def rightsum():
-    print("@@@@@@@@ Right sum: @@@@@@@@", file = f)
+
+############ Central Element ##############
+
+# \sum_{\mu} q^{(-2\rho, \mu) q^{H_{-2\mu}}}
+
+def sum():
     sum = 0
-  
-    for i in range(1,n+1):   # Computing dual elements e* and f* CASE 1
-        for j in range(i+1,n+1): # μ = L_i > λ = L_j (i < j)
-            pathSet = getPathSet(n,i,j,1) # e_{μλ} = E_{pathSet} = E_{i, ..., j - 1}
+    
+    # CASE 0: μ = λ
+    for i in range(1,n+1): # μ = L_i
+        secondterm = K[n-2] * KNeg[n-1]
+        for j in range(i,n):
+            secondterm *= KNeg[j-1]**2
+        summand = q**(-2*n + 2*i) * secondterm
+        sum += summand
+
+    for i in range(1,n+1): # μ = -L_i
+        secondterm = KNeg[n-2] * K[n-1]
+        for j in range(i,n):
+            secondterm *= K[j-1]**2
+        summand = q**(2*n - 2*i) * secondterm
+        sum += summand
+    
+    # CASE 1: μ = L_i > λ = L_j (i < j)
+    for i in range(1,n+1):   
+        for j in range(i+1,n+1): 
+            pathSet = [x for x in range(i, j)] # e_{μλ} = E_{pathSet} = E_{i, ..., j - 1}
             coeff = q**(1 - 2*n + 2*i) * (q - q**(-1))**(2 * len(pathSet))
             eDual, fDual = dualElements(pathSet, i, j, 1)
-            qExponent = H[n-2] - H[n-1] # H_{-L_i - L_j} = H_{-μ - λ}
+            kTerm = K[n-2] * KNeg[n-1] # q**(H_{-L_i - L_j}) = q**H_{-μ - λ}
             for k in range(i,n):
-                qExponent -= 2 * H[k-1]
+                kTerm *= KNeg[k-1]**2
             for k in range(i,j):
-                qExponent += H[k-1]
-            summand = ((coeff * eDual * (q**qExponent) * fDual))
-            #print("i: ", i, ", j: ", j, ", summand: ", summand)
-            print("i: ", i, ", j: ", j)
-            print(f"i: {i} \t j: {j} \t summand: {summand}", file = f)
+                kTerm *= K[k-1]
+            summand = coeff * eDual * kTerm * fDual
             sum += summand
     
-
-    for i in range(1,n+1): # CASE 2
+    # CASE 2: μ = L_i > λ = -L_j
+    for i in range(1,n+1): 
         for j in range(1,n+1): 
-            if (i != n or j != n): # μ = L_i > λ = -L_j
-                pathSet = getPathSet(n,i,j,2) # e_{μλ} = +- E_{pathSet} = +- E_{i, ..., n-2, n, n-1, ..., j} (if i < n) or +- E_{n, n-2, ..., j} (if i = n) or +- E_{i, ..., n-2, n} (if j = n)
-                #coeff = q**(2 + 2*n - 2*i) * (q - q**(-1))**(2 * len(pathSet)) if i == j else q**(1 + 2*n - 2*i) * (q - q**(-1))**(2 * len(pathSet))
+            if (i != n or j != n):  
+                pathSet = [] # e_{μλ} = +- E_{pathSet} = +- E_{i, ..., n-2, n, n-1, ..., j} (if i < n) or +- E_{n, n-2, ..., j} (if i = n) or +- E_{i, ..., n-2, n} (if j = n)
+                for x in range(i,n-1):
+                    pathSet.append(x)
+                pathSet.append(n)
+                if (i != n and j != n):
+                    pathSet.append(n-1)
+                for x in reversed(range(j,n-1)):
+                    pathSet.append(x) 
                 coeff = q**(2 - 2*n + 2*i) * (q - q**(-1))**(2 * len(pathSet)) if i == j else q**(1 - 2*n + 2*i) * (q - q**(-1))**(2 * len(pathSet))
                 eDual, fDual = dualElements(pathSet, i, j, 2)
-                qExponent = 0 # H_{-L_i + L_j} = H_{-μ - λ}
-                for k in range(min(i,j), max(i,j)):
-                    qExponent += H[k-1]
+                kTerm = 1 # q**(H_{-L_i + L_j}) = q**H_{-μ - λ}
                 if i < j:
-                    qExponent *= -1
-                #summand = simplify(((-1) * coeff * eDual * (q**qExponent) * fDual).subs(q**2 - 1, q*r).subs(q - 1/q, r))
-                summand = (((-1) * coeff * eDual * (q**qExponent) * fDual))
-                #print("i: ", i, ", -j: ", j, ", summand: ", summand)
-                print("i: ", i, ", -j: ", j)
-                print(f"i: {i} \t -j: {j} \t summand: {summand}", file = f)
+                    for k in range(i, j):
+                        kTerm *= KNeg[k-1]
+                else:
+                    for k in range(j, i):
+                        kTerm *= K[k-1]
+                summand = (-1) * coeff * eDual * kTerm * fDual
                 sum += summand
 
-    for j in range(1,n+1): # CASE 3
-        for i in range(j+1,n+1): # μ = -L_i > λ = -L_j (i > j)
-            pathSet = getPathSet(n, i, j, 3) # e_{μλ} = E_{pathSet} = E_{i-1, ..., j}
-            #coeff = q**(1 + 2*i - 2*n) * (q - q**(-1))**(2 * len(pathSet))
+    # CASE 3: μ = -L_i > λ = -L_j (i > j)
+    for j in range(1,n+1): 
+        for i in range(j+1,n+1): 
+            pathSet = [x for x in reversed(range(j, i))] # e_{μλ} = E_{pathSet} = E_{i-1, ..., j}
             coeff = q**(1 - 2*i + 2*n) * (q - q**(-1))**(2 * len(pathSet))
             eDual, fDual = dualElements(pathSet, i, j, 3)
-            qExponent = - H[n-2] + H[n-1] # H_{L_i + L_j} = H_{-μ - λ}
+            kTerm = KNeg[n-2] * K[n-1] # q**(H_{L_i + L_j}) = q**H_{-μ - λ}
             for k in range(i,n):
-                qExponent += 2 * H[k-1]
+                kTerm *= K[k-1]**2
             for k in range(j,i):
-                qExponent += H[k-1]
-            #summand = simplify((coeff * eDual * (q**qExponent) * fDual).subs(q**2 - 1, q*r).subs(q - 1/q, r))
-            summand = ((coeff * eDual * (q**qExponent) * fDual))
-            #print("-i: ", i, ", -j: ", j, ", summand: ", summand)
-            print("-i: ", i, ", -j: ", j,)
-            print(f"-i: {i} \t -j: {j} \t summand: {summand}", file = f)
+                kTerm *= K[k-1]
+            summand = coeff * eDual * kTerm * fDual
             sum += summand 
 
     return sum
 
-print(rightsum())
-
-
+fout = open('numtestkarthik.txt', 'w')
+print(sum(), file = fout)
