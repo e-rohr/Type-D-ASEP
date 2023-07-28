@@ -3,9 +3,6 @@ import itertools
 from collections import deque
 
 
-
-
-
 n = 3
 q = Symbol('q')
 r = Symbol('r')
